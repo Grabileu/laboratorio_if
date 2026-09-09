@@ -4,6 +4,7 @@
 const maxAttempts = 7;
 const codeLength = 4;
 const adminPassword = "aidento";
+const storageKey = "laboratorio-if-state";
 let secretCode = "9742";
 
 let attempts = 0;
@@ -11,6 +12,44 @@ let currentCode = "";
 let history = [];
 let gameOver = false;
 let missionStarted = false;
+let statusTone = "neutral";
+
+function saveGameState() {
+  try {
+    localStorage.setItem(storageKey, JSON.stringify({
+      secretCode,
+      attempts,
+      currentCode,
+      history,
+      gameOver,
+      missionStarted,
+      status: statusState ? statusState.textContent : "Aguardando início",
+      statusTone,
+    }));
+  } catch (error) {
+    console.warn("Não foi possível salvar o progresso local.");
+  }
+}
+
+function loadGameState() {
+  try {
+    const rawState = localStorage.getItem(storageKey);
+    if (!rawState) return null;
+
+    const savedState = JSON.parse(rawState);
+    if (/^\d{4}$/.test(savedState.secretCode)) secretCode = savedState.secretCode;
+    if (Number.isInteger(savedState.attempts)) attempts = Math.max(0, Math.min(savedState.attempts, maxAttempts));
+    if (typeof savedState.currentCode === "string") currentCode = savedState.currentCode.replace(/\D/g, "").slice(0, codeLength);
+    if (Array.isArray(savedState.history)) history = savedState.history;
+    gameOver = savedState.gameOver === true;
+    missionStarted = savedState.missionStarted === true;
+    statusTone = savedState.statusTone || "neutral";
+    return savedState;
+  } catch (error) {
+    localStorage.removeItem(storageKey);
+    return null;
+  }
+}
 
 // ------------------------------------------------------------------
 // Elementos
@@ -166,6 +205,7 @@ function updateAttemptText() {
 }
 
 function setStatus(text, tone = "neutral") {
+  statusTone = tone;
   statusState.textContent = text;
   statusState.style.color =
     tone === "success" ? "#4ade80" :
@@ -339,6 +379,7 @@ async function handleSubmit() {
     currentCode = "";
     updateDisplay();
     updateTensionState();
+    saveGameState();
   } catch (error) {
     console.error(error);
   } finally {
@@ -390,6 +431,8 @@ function resetGame({ newMission = false } = {}) {
   } else {
     setStatus("Em análise", "neutral");
   }
+
+  saveGameState();
 }
 
 function addDigit(digit) {
@@ -397,6 +440,7 @@ function addDigit(digit) {
   currentCode += digit;
   updateDisplay();
   setStatus("Digitação ativa", "neutral");
+  saveGameState();
   playKeySound();
 }
 
@@ -404,6 +448,7 @@ function removeDigit() {
   if (gameOver || !missionStarted || currentCode.length === 0) return;
   currentCode = currentCode.slice(0, -1);
   updateDisplay();
+  saveGameState();
   playKeySound();
 }
 
@@ -451,6 +496,7 @@ startMissionBtn.addEventListener("click", () => {
   closeModal(briefingModal);
   missionStarted = true;
   setStatus("Em análise", "neutral");
+  saveGameState();
   playUnlockSound();
 });
 
@@ -535,6 +581,7 @@ clearBtn.addEventListener("click", () => {
   currentCode = "";
   updateDisplay();
   setStatus("Campo limpo", "neutral");
+  saveGameState();
 });
 
 restartBtn.addEventListener("click", () => resetGame());
@@ -566,7 +613,21 @@ document.addEventListener("keydown", (event) => {
 // ------------------------------------------------------------------
 // Inicialização
 // ------------------------------------------------------------------
+buildKeypad();
+const savedState = loadGameState();
+
 updateDisplay();
 updateAttemptText();
 renderHistory();
-buildKeypad();
+
+if (missionStarted) {
+  closeModal(briefingModal);
+  setStatus(savedState.status || "Em análise", savedState.statusTone || "neutral");
+}
+
+if (gameOver) {
+  disableInput();
+  endgameActions.classList.remove("hidden");
+}
+
+updateTensionState();
