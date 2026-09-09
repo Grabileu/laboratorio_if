@@ -1,8 +1,10 @@
 // ------------------------------------------------------------------
-// Configuração do jogo (segredos vindos do servidor, não do cliente)
+// Configuração do jogo
 // ------------------------------------------------------------------
 const maxAttempts = 7;
 const codeLength = 4;
+const adminPassword = "aidento";
+let secretCode = "9742";
 
 let attempts = 0;
 let currentCode = "";
@@ -196,24 +198,32 @@ function updateTensionState() {
  * contados corretamente — por exemplo, se o código fosse "1123" e a
  * tentativa "1111", apenas dois "1" podem ser marcados como corretos.
  */
-async function evaluateGuessOnServer(guess) {
-  try {
-    const response = await fetch('/api/submit-guess', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ guess })
-    });
+function evaluateGuess(guess) {
+  const results = new Array(guess.length);
+  const codeRemaining = secretCode.split('');
 
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || 'Erro ao validar tentativa.');
+  for (let i = 0; i < guess.length; i++) {
+    if (guess[i] === secretCode[i]) {
+      results[i] = { label: "POSIÇÃO CERTA", className: "success" };
+      codeRemaining[i] = null;
     }
-
-    return data;
-  } catch (error) {
-    setStatus('Erro no servidor', 'danger');
-    throw error;
   }
+
+  for (let i = 0; i < guess.length; i++) {
+    if (results[i]) continue;
+    const index = codeRemaining.indexOf(guess[i]);
+    if (index !== -1) {
+      results[i] = { label: "CERTA, MAS POSIÇÃO ERRADA", className: "warning" };
+      codeRemaining[index] = null;
+    } else {
+      results[i] = { label: "ERRADO", className: "danger" };
+    }
+  }
+
+  return {
+    results,
+    correct: results.every((result) => result.className === "success"),
+  };
 }
 
 function triggerResultAnimation(type, message) {
@@ -298,7 +308,7 @@ async function handleSubmit() {
   submitBtn.disabled = true;
 
   try {
-    const data = await evaluateGuessOnServer(currentCode);
+    const data = evaluateGuess(currentCode);
     const { results, correct } = data;
 
     attempts += 1;
@@ -462,28 +472,18 @@ changeCodeBtn.addEventListener("click", () => {
 
 cancelAdminBtn.addEventListener("click", () => closeModal(adminModal));
 
-async function attemptAdminLogin() {
-  try {
-    const response = await fetch('/api/admin-login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: adminPasswordInput.value })
-    });
+function attemptAdminLogin() {
+  if (adminPasswordInput.value.trim() === adminPassword) {
+    playUnlockSound();
+    closeModal(adminModal);
+    newCodeInput.value = "";
+    newCodeError.classList.add("hidden");
+    openModal(newCodeModal);
+    window.setTimeout(() => newCodeInput.focus(), 50);
+    return;
+  }
 
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      playUnlockSound();
-      closeModal(adminModal);
-      newCodeInput.value = "";
-      newCodeError.classList.add("hidden");
-      openModal(newCodeModal);
-      window.setTimeout(() => newCodeInput.focus(), 50);
-      return;
-    }
-
-    throw new Error(data.error || 'Senha incorreta.');
-  } catch (error) {
+  {
     playErrorSound();
     adminError.classList.remove("hidden");
     shakeElement(adminModalBox);
@@ -506,7 +506,7 @@ newCodeInput.addEventListener("input", (event) => {
   event.target.value = event.target.value.replace(/[^0-9]/g, "").slice(0, codeLength);
 });
 
-async function confirmNewCode() {
+function confirmNewCode() {
   const value = newCodeInput.value;
   if (value.length !== codeLength || !/^\d+$/.test(value)) {
     newCodeError.classList.remove("hidden");
@@ -514,26 +514,10 @@ async function confirmNewCode() {
     return;
   }
 
-  try {
-    const response = await fetch('/api/change-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password: adminPasswordInput.value, code: value })
-    });
-
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || 'Não foi possível salvar o código.');
-    }
-
-    closeModal(newCodeModal);
-    playUnlockSound();
-    resetGame({ newMission: true });
-  } catch (error) {
-    newCodeError.textContent = '⚠️ ' + (error.message || 'Não foi possível salvar o código.');
-    newCodeError.classList.remove('hidden');
-    shakeElement(newCodeModalBox);
-  }
+  secretCode = value;
+  closeModal(newCodeModal);
+  playUnlockSound();
+  resetGame({ newMission: true });
 }
 
 confirmNewCodeBtn.addEventListener("click", confirmNewCode);
@@ -582,17 +566,7 @@ document.addEventListener("keydown", (event) => {
 // ------------------------------------------------------------------
 // Inicialização
 // ------------------------------------------------------------------
-async function loadGameConfig() {
-  try {
-    const response = await fetch('/api/health');
-    if (!response.ok) throw new Error('Servidor indisponível');
-  } catch (error) {
-    console.warn('Servidor indisponível.');
-  }
-}
-
 updateDisplay();
 updateAttemptText();
 renderHistory();
 buildKeypad();
-loadGameConfig();
