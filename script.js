@@ -57,6 +57,7 @@ function loadGameState() {
 const codeDisplay = document.getElementById("codeDisplay");
 const attemptCounter = document.getElementById("attemptCounter");
 const statusState = document.getElementById("statusState");
+const doorTitle = document.getElementById("doorTitle");
 const historyList = document.getElementById("historyList");
 const keypad = document.getElementById("keypad");
 const submitBtn = document.getElementById("submitBtn");
@@ -229,6 +230,11 @@ function updateTensionState() {
   appShell.classList.toggle("low-attempts", attempts > 0 && remaining <= 2);
 }
 
+function updateDoorTitle() {
+  const doorIsOpen = gameOver && history.length > 0 && history[history.length - 1].correct;
+  doorTitle.textContent = doorIsOpen ? "PORTA LIBERADA" : "PORTA BLOQUEADA";
+}
+
 // ------------------------------------------------------------------
 // Lógica do jogo
 // ------------------------------------------------------------------
@@ -363,6 +369,7 @@ async function handleSubmit() {
       triggerResultAnimation("success", "PARABÉNS CIENTISTA!!\nVOCÊ SALVOU O LABORATÓRIO!");
       setStatus("Acesso liberado", "success");
       endGame();
+      updateDoorTitle();
     } else if (attempts >= maxAttempts) {
       playErrorSound();
       shakeElement(codeDisplay);
@@ -424,6 +431,7 @@ function resetGame({ newMission = false } = {}) {
   renderHistory();
   enableInput();
   endgameActions.classList.add("hidden");
+  updateDoorTitle();
   updateTensionState();
 
   if (newMission) {
@@ -619,6 +627,7 @@ const savedState = loadGameState();
 updateDisplay();
 updateAttemptText();
 renderHistory();
+updateDoorTitle();
 
 if (missionStarted) {
   closeModal(briefingModal);
