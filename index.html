@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Escape Room - Laboratório</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="confettiCanvas" aria-hidden="true"></canvas>
+
+    <div class="backdrop-glow glow-1"></div>
+    <div class="backdrop-glow glow-2"></div>
+
+    <div class="victory-overlay" id="victoryOverlay" aria-hidden="true">
+      <div class="victory-ring"></div>
+      <div class="victory-core">ACESSO LIBERADO</div>
+    </div>
+
+    <div class="modal-overlay active" id="briefingModal">
+      <div class="modal-box briefing-box">
+        <span class="modal-icon">🧪</span>
+        <h2>ALERTA DE SEGURANÇA</h2>
+        <p>
+          O sistema de contenção do laboratório falhou. A única forma de evitar o pior é
+          destravar a porta blindada descobrindo o <strong>código secreto de 4 dígitos</strong>
+          antes que as tentativas acabem.
+        </p>
+        <ul class="briefing-rules">
+          <li><span class="rule-dot success"></span> Verde: dígito certo, na posição certa</li>
+          <li><span class="rule-dot warning"></span> Amarelo: dígito certo, posição errada</li>
+          <li><span class="rule-dot danger"></span> Vermelho: dígito não faz parte do código</li>
+        </ul>
+        <button id="startMissionBtn" class="action-btn primary">🚀 Assumir a missão</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="helpModal">
+      <div class="modal-box">
+        <span class="modal-icon">❓</span>
+        <h2>Como jogar</h2>
+        <ul class="help-list">
+          <li>Digite 4 números usando o teclado na tela <strong>ou</strong> o teclado do computador.</li>
+          <li>Use <strong>⌫</strong> para apagar um dígito e <strong>Limpar</strong> para apagar tudo.</li>
+          <li>Aperte <strong>Enter</strong> ou <strong>Confirmar</strong> para tentar.</li>
+          <li>Depois de cada tentativa, cada dígito recebe uma cor: verde, amarelo ou vermelho.</li>
+          <li>Você tem tentativas limitadas — use as pistas com cuidado!</li>
+        </ul>
+        <button id="closeHelpBtn" class="action-btn primary">Entendi</button>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="adminModal">
+      <div class="modal-box" id="adminModalBox">
+        <span class="modal-icon">🔒</span>
+        <h2>Painel do Administrador</h2>
+        <p>Digite a senha de administrador para reprogramar o código da porta.</p>
+        <input
+          type="password"
+          id="adminPasswordInput"
+          class="modal-input"
+          placeholder="Senha do administrador"
+          autocomplete="off"
+        />
+        <p class="modal-error hidden" id="adminError">❌ Senha incorreta. Tente novamente.</p>
+        <div class="modal-actions">
+          <button id="cancelAdminBtn" class="action-btn ghost">Cancelar</button>
+          <button id="confirmAdminBtn" class="action-btn primary">Desbloquear</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-overlay" id="newCodeModal">
+      <div class="modal-box" id="newCodeModalBox">
+        <span class="modal-icon">🛠️</span>
+        <h2>Definir novo código</h2>
+        <p>Digite os 4 novos dígitos secretos da porta.</p>
+        <input
+          type="text"
+          id="newCodeInput"
+          class="modal-input code-input"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          maxlength="4"
+          placeholder="____"
+          autocomplete="off"
+        />
+        <p class="modal-error hidden" id="newCodeError">⚠️ Digite exatamente 4 números.</p>
+        <div class="modal-actions">
+          <button id="cancelNewCodeBtn" class="action-btn ghost">Cancelar</button>
+          <button id="confirmNewCodeBtn" class="action-btn primary">Salvar novo código</button>
+        </div>
+      </div>
+    </div>
+
+    <main class="app-shell" id="appShell">
+      <section class="panel left-panel">
+        <button id="helpBtn" class="help-btn" aria-label="Como jogar" title="Como jogar">❓</button>
+
+        <div class="brand-block">
+          <span class="badge">LABORATÓRIO SECRETO</span>
+          <h1>PORTA BLOQUEADA</h1>
+        </div>
+
+        <div class="status-box">
+          <div class="status-row">
+            <span>Tentativas</span>
+            <strong id="attemptCounter" aria-live="polite">0 / 7</strong>
+          </div>
+          <div class="status-row">
+            <span>Estado</span>
+            <strong id="statusState" aria-live="polite">Aguardando início</strong>
+          </div>
+        </div>
+
+        <div class="code-display" id="codeDisplay" aria-label="Código digitado">_ _ _ _</div>
+        <p class="input-hint">💡 Use o teclado do computador ou toque nos números abaixo</p>
+
+        <div class="controls">
+          <button id="clearBtn" class="action-btn ghost">Limpar</button>
+          <button id="submitBtn" class="action-btn primary">Confirmar</button>
+        </div>
+
+        <div class="keypad" id="keypad"></div>
+
+        <div class="endgame-actions hidden" id="endgameActions">
+          <button id="restartBtn" class="action-btn restart">🔁 Jogar novamente</button>
+          <button id="changeCodeBtn" class="action-btn admin">🛠️ Trocar código (admin)</button>
+        </div>
+      </section>
+
+      <aside class="panel right-panel">
+        <div class="monitor-header">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+
+        <div class="mission-screen">
+          <p class="label">Missão</p>
+          <h2>Descubra o código da porta</h2>
+          <p id="missionText">
+            O laboratório foi bloqueado após uma falha no sistema de segurança. Restaure o
+            acesso decifrando os quatro dígitos antes que as tentativas se esgotem.
+          </p>
+        </div>
+
+        <div class="hint-box">
+          <p class="label">Tentativas</p>
+          <div class="history-list" id="historyList">
+            <div class="history-card empty">Nenhuma tentativa registrada.</div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <script src="script.js"></script>
+  </body>
+</html>
